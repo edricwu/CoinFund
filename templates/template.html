@@ -1,0 +1,327 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>blockchain</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.css') }}" />
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+
+    <script lang="javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script lang="javascript">
+        var contract;
+
+        async function enableEthereum() {
+            window.ethereum.enable();
+        }
+
+        $(document).ready(function () {
+            if (typeof web3 !== 'undefined') {
+
+                enableEthereum();
+
+                var sc_address = "{{contractAddress}}";
+                var contractABI = web3.eth.contract(JSON.parse('{{contractABI | safe}}'));
+                var contractInstance = contractABI.at(sc_address);
+                var owner;
+
+                contractInstance.info(function (error, result) {
+                    console.log(result);
+
+                    $("#title").text(result[1]);
+                    $("#description").text(result[2]);
+
+                    $("#campaign_address").text(result[0]);
+                    $("#target").text(parseInt(web3.fromWei(result[3].toNumber(), 'ether')).toFixed(2));
+                    $("#monthly").text(parseInt(web3.fromWei(result[4].toNumber(), 'ether')).toFixed(2));
+                    $("#start").text(new Date(result[7].toNumber() * 1000).toLocaleString());
+                    $("#end").text(new Date(result[8].toNumber() * 1000).toLocaleString());
+                    $("#balance").text(parseInt(web3.fromWei(result[5].toNumber(), 'ether')).toFixed(2));
+                    $("#withdrawn").text(parseInt(web3.fromWei(result[6].toNumber(), 'ether')).toFixed(2));
+
+                });
+
+                function populateBacker(info){
+                    
+                }
+
+                contractInstance.owner(function (error, result) {
+                    console.log(result);
+                    $("#name").text(result[1]);
+                    $("#email").text(result[2]);
+                    $("#address").text(result[0]);
+                    owner = result[0];
+                    web3.eth.getAccounts(function (error, result) {
+                        console.log(result[0]);
+                        console.log(owner);
+                        if (result[0] == owner) {
+                            name = $("#name").text();
+                            $("#welcome").text("Welcome, " + name + " (Owner)");
+                            $("#backers").show();
+                            $("#backer_btn").attr("disabled", true);
+                            contractInstance.getBackers(function(error,result){
+                                // console.log(result);
+                                result.forEach(function(item){
+                                    console.log(item);
+                                    contractInstance.getBackerInfo(item, function(error,info){
+                                        console.log(info);
+                                        $("#backers").append(
+                                            `<div class="card">
+                
+                                                <div class="card-body">
+                                                    <h4 class="card-title">` + info[0] + `</h4>
+                                                    <div class="container">
+                                                        <div class="row">
+                                                            <div class="col-sm-3">
+                                                                <div class="card-text">Address</div>
+                                                                <div class="card-text">Email</div>
+                                                                <div class="card-text">Backing Amount (Ether)</div>
+                                                            </div>
+                                                            <div class="col-sm-9">
+                                                                <div class="card-text">` + item + `</div>
+                                                                <div class="card-text">` + info[1] +`</div>
+                                                                <div class="card-text">` + parseInt(web3.fromWei(info[2].toNumber(), 'ether')).toFixed(2) +`</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>`
+                                        );
+                                    });
+                                });
+                            });
+                        }
+                        else {
+                            console.log(web3.eth.accounts[0]);
+                            contractInstance.getBackerInfo(web3.eth.accounts[0], function (error, result) {
+                                console.log(result);
+                                name = result[0];
+                                if (name == "") {
+                                    $("#welcome").text("Welcome");
+                                    $("#release_fund").attr("disabled", true);
+                                }
+                                else {
+                                    $("#welcome").text("Welcome, " + name);
+                                    $("#backer_address").text(web3.eth.accounts[0]);
+                                    $("#backer_name").text(name);
+                                    $("#backer_email").text(result[1]);
+                                    $("#back_name").val(name);
+                                    $("#back_name").attr("disabled",true);
+                                    $("#back_email").val(result[1]);
+                                    $("#back_email").attr("disabled",true);
+                                    $("#backer_amount").text(parseInt(web3.fromWei(result[2].toNumber(), 'ether')).toFixed(2));
+                                    $("#backer_info").show();
+                                }
+                    
+                                $("#monthly_release").attr("disabled", true);
+                            });
+                        }
+                    });
+                });
+
+                $("#confirm").click(function () {
+                    name = $("#back_name").val();
+                    email = $("#back_email").val();
+                    amount = web3.toWei($("#back_amount").val());
+                    contractInstance.backCampaign(name, email, {value: amount}, function (error, result) {
+                        
+                        location.reload();
+                    });
+
+                });
+
+                contractInstance.successful(function(error, result){
+                    console.log(result);
+                    if (result){
+                        $("#status").text("Successful");
+                        if (owner == web3.eth.accounts[0]){
+                            $("#monthly_release").attr("disabled",false);
+                            $("#release_fund").attr("disabled",true);
+                        }
+                    }
+                    else{
+                        contractInstance.last_released(function(error, result){
+                            console.log(result.toNumber());
+                            if (result.toNumber() != 0){
+                                $("#status").text("Failed (Balance refunded to backers)");
+                                $("#release_fund").attr("disabled",true);
+                            }
+                        });
+                    }
+                });
+
+                // contractInstance.last_released(function(error, result){
+                //     console.log(result.toNumber());
+                //     if (result.toNumber() == 0){
+                //         $("#monthly_release").attr("disabled",true);
+                //     }
+                //     else{
+                        
+                //     }
+                // });
+                
+                
+
+                $("#release_fund").click(function () {
+                    contractInstance.releaseFund(function(error, result){
+                        location.reload();
+                    });
+                });
+
+                $("#monthly_release").click(function(){
+                    contractInstance.releaseMonthly(function(error, result){
+			location.reload();
+                    });
+                });
+
+                // window.ethereum.on("accountsChanged", function(){
+                //     location.reload();
+                // });
+            }
+            else {
+                alert("Please, install Metamask!");
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <section class="pt-5 pb-5 mt-0 align-items-center d-flex ">
+        <div class="container">
+            <div class="row  justify-content-center align-items-center d-flex text-center">
+                <div class="col-12 col-md-8">
+                    <h1 id="title">None</h1>
+                    <p id="description">None</p>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+    <div class="container">
+        <h1 id="welcome">Welcome</h1>
+        <div class="row">
+            <div class="col-sm-7">
+                <h5><strong>Campaign Info</strong></h5>
+                <div class="row">
+                    <div class="col-sm-4">
+                        <div>Entrepreneur</div>
+                        <div class="text-right">Name</div>
+                        <div class="text-right">Email</div>
+                        <div class="text-right">Address</div>
+                        <div>Campaign Address</div>
+                        <div>Target (Ether)</div>
+                        <div>Monthly Limit (Ether)</div>
+                        <div>Start Time</div>
+                        <div>End Time</div>
+                        <div>Status</div>
+                        <div>Balance (Ether)</div>
+                        <div>Withdrawn (Ether)</div>
+                    </div>
+                    <div class="col-sm-8">
+                        <div>&nbsp;</div>
+                        <div id="name">None</div>
+                        <div id="email">None</div>
+                        <div id="address">None</div>
+                        <div id="campaign_address">None</div>
+                        <div id="target">0</div>
+                        <div id="monthly">0</div>
+                        <div id="start">None</div>
+                        <div id="end">None</div>
+                        <div id="status">Ongoing</div>
+                        <div id="balance">0</div>
+                        <div id="withdrawn">0</div>
+                    </div>
+                </div>
+
+            </div>
+            <div id="backer_info" class="col-sm-5" style="display:none">
+                <h5><strong>Your Info</strong></h5>
+                <div class="row">
+                    <div class="col-sm-4">
+                        <div>Address</div>
+                        <div>Name</div>
+                        <div>Email</div>
+                        <div>Amount (Ether)</div>
+
+
+                    </div>
+                    <div class="col-sm-8">
+                        <div id="backer_address">None</div>
+                        <div id="backer_name">None</div>
+                        <div id="backer_email">None</div>
+                        <div id="backer_amount">0</div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <br>
+        <div class="row">
+            <div class="col-sm-2">
+            </div>
+            <div class="col-sm-3">
+                <button id="release_fund" type="button" class="btn btn-outline-primary btn-block"
+                    aris-haspopup="true" aria-expanded="false">
+                    Release Fund
+                </button>
+            </div>
+            <div class="col-sm-3">
+                <button id="monthly_release" type="button" class="btn btn-outline-primary btn-block"
+                    aris-haspopup="true" aria-expanded="false" disabled="true">
+                    Monthly Release
+                </button>
+            </div>
+            <div class="dropdown col-sm-3">
+                <button id="backer_btn" type="button" class="btn btn-outline-primary btn-block" data-toggle="dropdown"
+                    aris-haspopup="true" aria-expanded="false">
+                    Back This Campaign
+                </button>
+                <div class="px-3 py-3 dropdown-menu">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input id="back_name" type="value" class="form-control">
+                        <label>Email</label>
+                        <input id="back_email" type="value" class="form-control">
+                        <label>Amount (in Ether)</label>
+                        <input id="back_amount" type="value" class="form-control" placeholder="0.0">
+                    </div>
+                    <button id="confirm" class="btn btn-primary">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="backers" style="display:none">
+            <h5>Backers Info</h5>
+            
+        </div>
+
+    </div>
+
+    <!-- </section> -->
+
+
+
+
+
+</body>
+
+</html>
