@@ -9,3 +9,5 @@ CoinFund aims to provide a decentralized crowdfunding platform in which entrepre
 2. run <i>python3 server.py</i>
 
 <b>Use Case Diagram</b>
+
+![use_case](https://github.com/edricwu/CoinFund/blob/master/UseCaseDiagram.png)
